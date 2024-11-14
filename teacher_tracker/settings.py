@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
+from datetime import timedelta
 import dj_database_url
 from pathlib import Path
 
@@ -66,6 +67,12 @@ CORS_ALLOW_ALL_ORIGINS = (
 )
 
 ROOT_URLCONF = "teacher_tracker.urls"
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(days=1),
+    # "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
+    # "REFRESH_TOKEN_LIFETIME": timedelta(minutes=20),
+}
 
 TEMPLATES = [
     {
