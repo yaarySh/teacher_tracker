@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Teacher Schedule</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet" />
+  </head>
+  <body>
+    <div class="container my-5">
+      <div class="mb-4">
+        <h4 id="teacher-name" class="text-start"></h4>
+      </div>
+      <h2 class="text-center">Teacher's Schedule</h2>
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>Period</th>
+            <th>Classroom</th>
+            <th>Building Name</th>
+            <th>Floor Number</th>
+            <th>Date</th>
+            <th>Attended</th>
+          </tr>
+        </thead>
+        <tbody id="schedule-table-body">
+          <!-- Schedule rows will be populated here by JS -->
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+      const getToken = () => {
+        return localStorage.getItem("token"); // Assumes token is stored as 'token' in local storage
+      };
+
+      const fetchScheduleData = async () => {
+        const token = getToken();
+
+        if (token) {
+          try {
+            const response = await fetch("http://127.0.0.1:8000/classes/teacher", {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            if (!response.ok) {
+              throw new Error("Failed to fetch schedule data");
+            }
+
+            const data = await response.json();
+
+            if (data.length > 0) {
+              document.getElementById("teacher-name").innerText = `Teacher: ${data[0].teacher.first_name}`;
+            } else {
+              document.getElementById("teacher-name").innerText = "No teacher data available";
+              document.getElementById("schedule-table-body").innerHTML = `
+          <tr>
+            <td colspan="6" class="text-center">No schedule available for today</td>
+          </tr>
+        `;
+              return;
+            }
+
+            populateScheduleTable(data);
+          } catch (error) {
+            console.error("Error fetching schedule:", error);
+            alert("Error fetching schedule. Please try again.");
+          }
+        } else {
+          alert("No token found. Please log in first.");
+        }
+      };
+
+      const populateScheduleTable = (scheduleData) => {
+        const rows = [];
+        for (let i = 1; i <= 7; i++) {
+          const classForPeriod = scheduleData.find((item) => item.period === i);
+
+          if (classForPeriod) {
+            const classroomInfo = `${classForPeriod.classroom.grade_letter}${classForPeriod.classroom.class_number}`;
+            const buildingName = classForPeriod.classroom.building_name;
+            const floorNumber = classForPeriod.classroom.floor_number;
+
+            rows.push(`
+        <tr>
+          <td>${i}</td>
+          <td>${classroomInfo}</td>
+          <td>${buildingName}</td>
+          <td>${floorNumber}</td>
+          <td>${classForPeriod.date}</td>
+          <td>
+            <button class="btn btn-${classForPeriod.attended ? "success" : "danger"} btn-sm" 
+                    onclick="toggleAttendance(${classForPeriod.id}, ${!classForPeriod.attended})">
+              ${classForPeriod.attended ? "Yes" : "No"}
+            </button>
+          </td>
+        </tr>
+      `);
+          } else {
+            // Add dropdowns for selecting grade and class number
+            rows.push(`
+        <tr>
+          <td>${i}</td>
+          <td>
+            <select id="grade-select-${i}" class="form-select">
+              ${["א", "ב", "ג", "ד", "ה", "ו"].map((letter) => `<option value="${letter}">${letter}</option>`).join("")}
+            </select>
+            <select id="number-select-${i}" class="form-select">
+              ${[1, 2, 3, 4].map((number) => `<option value="${number}">${number}</option>`).join("")}
+            </select>
+            <button onclick="applyClass(${i})" class="btn btn-primary btn-sm mt-2">Apply</button>
+          </td>
+          <td colspan="4" class="text-center">No class scheduled</td>
+        </tr>
+      `);
+          }
+        }
+
+        document.getElementById("schedule-table-body").innerHTML = rows.join("");
+      };
+
+      const toggleAttendance = async (class_id, attendedStatus) => {
+        const token = getToken(); // Retrieve JWT token from local storage
+
+        if (token) {
+          try {
+            // Request to update attendance status
+            const response = await fetch(`http://127.0.0.1:8000/classes/${class_id}/update/`, {
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+              },
+              body: JSON.stringify({
+                attended: attendedStatus, // Send the new attendance status
+              }),
+            });
+
+            if (!response.ok) {
+              throw new Error("Failed to update attendance");
+            }
+
+            const data = await response.json();
+            alert("Attendance status updated!");
+
+            // Refresh the schedule table to show the updated row
+            fetchScheduleData();
+          } catch (error) {
+            console.error("Error:", error);
+            alert("Error updating attendance. Please try again.");
+          }
+        } else {
+          alert("No token found. Please log in first.");
+        }
+      };
+      fetchScheduleData();
+    </script>
+  </body>
+</html>
