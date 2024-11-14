@@ -24,6 +24,7 @@ class ClassSerializer(serializers.ModelSerializer):
     class Meta:
         model = Class
         fields = [
+            "id",
             "teacher",
             "classroom",
             "period",

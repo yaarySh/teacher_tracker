@@ -144,72 +144,48 @@ def update_teacher_monthly_hours(request):
     )
 
 
-# Endpoint to submit attendance for the classes the teacher was present in
-@api_view(["PATCH"])
+@api_view(["PUT"])
 @permission_classes([IsAuthenticated])
-def submit_attendance(request):
-    teacher = request.user
-    date = request.data.get("date", str(datetime.date.today()))  # Default to today
-    class_attendances = request.data.get("classes", [])  # List of class attendance data
+def update_attendance(request, class_id):
+    try:
+        # Get the class instance
+        class_instance = Class.objects.get(id=class_id)
 
-    if not class_attendances:
+        # Check if the logged-in user is the teacher of the class
+        if class_instance.teacher != request.user:
+            return Response(
+                {"error": "You are not authorized to update this class."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Get the current and new attendance status
+        new_attended_status = request.data.get("attended")
+        current_attended_status = class_instance.attended
+
+        # Update the attendance status
+        class_instance.attended = new_attended_status
+        class_instance.save()
+
+        # Update teacher's monthly hours
+        teacher = class_instance.teacher
+        if new_attended_status and not current_attended_status:
+            # Increment monthly hours if marking as attended
+            teacher.monthly_hours += 1
+        elif not new_attended_status and current_attended_status:
+            # Decrement monthly hours if changing from attended to not attended
+            teacher.monthly_hours -= 1
+
+        teacher.save()
+
         return Response(
-            {"error": "No class attendance data provided."},
-            status=status.HTTP_400_BAD_REQUEST,
+            {"message": "Attendance status updated and teacher hours adjusted."},
+            status=status.HTTP_200_OK,
         )
 
-    total_hours_added = 0  # To track the total hours based on the attendance marked
-    for class_data in class_attendances:
-        class_id = class_data.get("class_id")
-        was_present = class_data.get("was_present", False)
-
-        try:
-            class_instance = Class.objects.get(id=class_id, teacher=teacher)
-        except Class.DoesNotExist:
-            return Response(
-                {
-                    "error": f"Class with id {class_id} not found or does not belong to the teacher."
-                },
-                status=status.HTTP_404_NOT_FOUND,
-            )
-
-        # Check if an attendance entry already exists for this class and date
-        attendance, created = attendance.objects.get_or_create(
-            teacher=teacher, class_instance=class_instance, date=date
-        )
-        attendance.was_present = was_present
-        attendance.save()
-
-        if was_present:
-            total_hours_added += 1  # Assuming each class period is 1 hour
-
-    # Now update the teacher's monthly hours
-    today = date
-    daily_entry = DailyHourEntry.objects.filter(teacher=teacher, date=today).first()
-
-    if daily_entry:
-        # Add the new hours to the existing daily entry
-        if daily_entry.hours_added + total_hours_added > 7:
-            return Response(
-                {"error": "You cannot add more than 7 hours for today."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        daily_entry.hours_added += total_hours_added
-        daily_entry.save()
-    else:
-        # If no entry exists, create a new one for today
-        DailyHourEntry.objects.create(
-            teacher=teacher, date=today, hours_added=total_hours_added
-        )
-
-    # Update the teacher's monthly hours
-    teacher.monthly_hours += total_hours_added
-    teacher.save()
-
-    return Response(
-        {"message": "Attendance and monthly hours updated successfully."},
-        status=status.HTTP_200_OK,
-    )
+    except Class.DoesNotExist:
+        return Response({"error": "Class not found."}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 @api_view(["GET"])

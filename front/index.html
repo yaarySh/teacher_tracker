@@ -11,6 +11,7 @@
     <div class="container my-5">
       <div class="mb-4">
         <h4 id="teacher-name" class="text-start"></h4>
+        <h4 id="monthly-hours" class="text-end"></h4>
       </div>
       <h2 class="text-center">Teacher's Schedule</h2>
       <table class="table table-bordered">
@@ -54,9 +55,18 @@
             }
 
             const data = await response.json();
+            const teacher = data.teacher;
+            const classes = data.data;
 
-            if (data.length > 0) {
-              document.getElementById("teacher-name").innerText = `Teacher: ${data[0].teacher.first_name}`;
+            if (teacher) {
+              console.log(teacher);
+              console.log(teacher.first_name);
+
+              // Display the teacher's name
+              document.getElementById("teacher-name").innerText = `Teacher: ${teacher.first_name}`;
+
+              // Display the teacher's monthly hours
+              document.getElementById("monthly-hours").innerText = `Monthly Hours: ${teacher.monthly_hours}`;
             } else {
               document.getElementById("teacher-name").innerText = "No teacher data available";
               document.getElementById("schedule-table-body").innerHTML = `
@@ -67,7 +77,7 @@
               return;
             }
 
-            populateScheduleTable(data);
+            populateScheduleTable(classes);
           } catch (error) {
             console.error("Error fetching schedule:", error);
             alert("Error fetching schedule. Please try again.");
@@ -79,14 +89,13 @@
 
       const populateScheduleTable = (scheduleData) => {
         const rows = [];
-        for (let i = 1; i <= 7; i++) {
+        for (let i = 1; i <= 6; i++) {
           const classForPeriod = scheduleData.find((item) => item.period === i);
-
           if (classForPeriod) {
             const classroomInfo = `${classForPeriod.classroom.grade_letter}${classForPeriod.classroom.class_number}`;
             const buildingName = classForPeriod.classroom.building_name;
             const floorNumber = classForPeriod.classroom.floor_number;
-
+            console.log(classForPeriod);
             rows.push(`
         <tr>
           <td>${i}</td>
@@ -98,6 +107,9 @@
             <button class="btn btn-${classForPeriod.attended ? "success" : "danger"} btn-sm" 
                     onclick="toggleAttendance(${classForPeriod.id}, ${!classForPeriod.attended})">
               ${classForPeriod.attended ? "Yes" : "No"}
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="deleteClass(${classForPeriod.id})">
+              Delete
             </button>
           </td>
         </tr>
@@ -114,7 +126,7 @@
             <select id="number-select-${i}" class="form-select">
               ${[1, 2, 3, 4].map((number) => `<option value="${number}">${number}</option>`).join("")}
             </select>
-            <button onclick="applyClass(${i})" class="btn btn-primary btn-sm mt-2">Apply</button>
+            <button onclick="createClass(${i})" class="btn btn-primary btn-sm mt-2">Apply</button>
           </td>
           <td colspan="4" class="text-center">No class scheduled</td>
         </tr>
@@ -125,13 +137,45 @@
         document.getElementById("schedule-table-body").innerHTML = rows.join("");
       };
 
+      const deleteClass = async (class_id) => {
+        const token = getToken(); // Retrieve JWT token from local storage
+
+        if (token) {
+          try {
+            const response = await fetch(`http://127.0.0.1:8000/classes/${class_id}/delete/`, {
+              method: "DELETE",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            if (response.status === 204) {
+              alert("Class deleted successfully!");
+              // Refresh the schedule table after deletion
+              fetchScheduleData();
+            } else if (response.status === 403) {
+              alert("You are not authorized to delete this class.");
+            } else if (response.status === 404) {
+              alert("Class not found.");
+            } else {
+              throw new Error("Failed to delete class");
+            }
+          } catch (error) {
+            console.error("Error:", error);
+            alert("An error occurred while deleting the class. Please try again.");
+          }
+        } else {
+          alert("No token found. Please log in first.");
+        }
+      };
+
       const toggleAttendance = async (class_id, attendedStatus) => {
         const token = getToken(); // Retrieve JWT token from local storage
 
         if (token) {
           try {
             // Request to update attendance status
-            const response = await fetch(`http://127.0.0.1:8000/classes/${class_id}/update/`, {
+            const response = await fetch(`http://127.0.0.1:8000/teachers/class/${class_id}/update/`, {
               method: "PUT",
               headers: {
                 "Content-Type": "application/json",
@@ -158,6 +202,60 @@
         } else {
           alert("No token found. Please log in first.");
         }
+      };
+
+      const createClass = (period) => {
+        const gradeSelect = document.getElementById(`grade-select-${period}`);
+        const numberSelect = document.getElementById(`number-select-${period}`);
+        const gradeLetter = gradeSelect.value;
+        const classNumber = numberSelect.value;
+
+        // Construct the request body
+        const requestBody = {
+          classroom: {
+            grade_letter: gradeLetter,
+            class_number: parseInt(classNumber, 10),
+          },
+          period: period,
+          date: new Date().toISOString().split("T")[0], // Use current date or adjust as needed
+          attended: false,
+        };
+        const token = getToken();
+        // Send POST request to create a class
+        fetch("http://127.0.0.1:8000/classes/create/", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(requestBody),
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.id) {
+              // If class creation is successful, update the table row
+              const rows = document.getElementById("schedule-table-body").querySelectorAll("tr");
+              rows[period - 1].innerHTML = `
+          <td>${period}</td>
+          <td>${gradeLetter}${classNumber}</td>
+          <td>${data.classroom.building_name}</td>
+          <td>${data.classroom.floor_number}</td>
+          <td>${data.date}</td>
+          <td>
+            <button class="btn btn-${data.attended ? "success" : "danger"} btn-sm" 
+                    onclick="toggleAttendance(${data.id}, ${!data.attended})">
+              ${data.attended ? "Yes" : "No"}
+            </button>
+          </td>
+        `;
+            } else {
+              alert("Failed to create class. Please check your input.");
+            }
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            alert("An error occurred while creating the class.");
+          });
       };
       fetchScheduleData();
     </script>
