@@ -166,7 +166,6 @@ def update_attendance(request, class_id):
         class_instance.attended = new_attended_status
         class_instance.save()
 
-        # Update teacher's monthly hours
         teacher = class_instance.teacher
         if new_attended_status and not current_attended_status:
             # Increment monthly hours if marking as attended

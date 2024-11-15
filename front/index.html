@@ -29,6 +29,10 @@
           <!-- Schedule rows will be populated here by JS -->
         </tbody>
       </table>
+      <!-- Logout Button -->
+      <div class="text-center mt-4">
+        <button class="btn btn-danger" onclick="logout()">Logout</button>
+      </div>
     </div>
 
     <!-- Bootstrap JS -->
@@ -70,10 +74,10 @@
             } else {
               document.getElementById("teacher-name").innerText = "No teacher data available";
               document.getElementById("schedule-table-body").innerHTML = `
-          <tr>
-            <td colspan="6" class="text-center">No schedule available for today</td>
-          </tr>
-        `;
+                <tr>
+                  <td colspan="6" class="text-center">No schedule available for today</td>
+                </tr>
+              `;
               return;
             }
 
@@ -97,40 +101,40 @@
             const floorNumber = classForPeriod.classroom.floor_number;
             console.log(classForPeriod);
             rows.push(`
-        <tr>
-          <td>${i}</td>
-          <td>${classroomInfo}</td>
-          <td>${buildingName}</td>
-          <td>${floorNumber}</td>
-          <td>${classForPeriod.date}</td>
-          <td>
-            <button class="btn btn-${classForPeriod.attended ? "success" : "danger"} btn-sm" 
-                    onclick="toggleAttendance(${classForPeriod.id}, ${!classForPeriod.attended})">
-              ${classForPeriod.attended ? "Yes" : "No"}
-            </button>
-            <button class="btn btn-danger btn-sm" onclick="deleteClass(${classForPeriod.id})">
-              Delete
-            </button>
-          </td>
-        </tr>
-      `);
+              <tr>
+                <td>${i}</td>
+                <td>${classroomInfo}</td>
+                <td>${buildingName}</td>
+                <td>${floorNumber}</td>
+                <td>${classForPeriod.date}</td>
+                <td>
+                  <button class="btn btn-${classForPeriod.attended ? "success" : "danger"} btn-sm" 
+                          onclick="toggleAttendance(${classForPeriod.id}, ${!classForPeriod.attended})">
+                    ${classForPeriod.attended ? "Yes" : "No"}
+                  </button>
+                  <button class="btn btn-danger btn-sm" onclick="deleteClass(${classForPeriod.id})">
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            `);
           } else {
             // Add dropdowns for selecting grade and class number
             rows.push(`
-        <tr>
-          <td>${i}</td>
-          <td>
-            <select id="grade-select-${i}" class="form-select">
-              ${["א", "ב", "ג", "ד", "ה", "ו"].map((letter) => `<option value="${letter}">${letter}</option>`).join("")}
-            </select>
-            <select id="number-select-${i}" class="form-select">
-              ${[1, 2, 3, 4].map((number) => `<option value="${number}">${number}</option>`).join("")}
-            </select>
-            <button onclick="createClass(${i})" class="btn btn-primary btn-sm mt-2">Apply</button>
-          </td>
-          <td colspan="4" class="text-center">No class scheduled</td>
-        </tr>
-      `);
+              <tr>
+                <td>${i}</td>
+                <td>
+                  <select id="grade-select-${i}" class="form-select">
+                    ${["א", "ב", "ג", "ד", "ה", "ו"].map((letter) => `<option value="${letter}">${letter}</option>`).join("")}
+                  </select>
+                  <select id="number-select-${i}" class="form-select">
+                    ${[1, 2, 3, 4].map((number) => `<option value="${number}">${number}</option>`).join("")}
+                  </select>
+                  <button onclick="createClass(${i})" class="btn btn-primary btn-sm mt-2">Apply</button>
+                </td>
+                <td colspan="4" class="text-center">No class scheduled</td>
+              </tr>
+            `);
           }
         }
 
@@ -210,7 +214,6 @@
         const gradeLetter = gradeSelect.value;
         const classNumber = numberSelect.value;
 
-        // Construct the request body
         const requestBody = {
           classroom: {
             grade_letter: gradeLetter,
@@ -221,7 +224,7 @@
           attended: false,
         };
         const token = getToken();
-        // Send POST request to create a class
+
         fetch("http://127.0.0.1:8000/classes/create/", {
           method: "POST",
           headers: {
@@ -233,31 +236,37 @@
           .then((response) => response.json())
           .then((data) => {
             if (data.id) {
-              // If class creation is successful, update the table row
               const rows = document.getElementById("schedule-table-body").querySelectorAll("tr");
               rows[period - 1].innerHTML = `
           <td>${period}</td>
           <td>${gradeLetter}${classNumber}</td>
           <td>${data.classroom.building_name}</td>
           <td>${data.classroom.floor_number}</td>
-          <td>${data.date}</td>
+          <td>${new Date().toLocaleDateString()}</td>
           <td>
-            <button class="btn btn-${data.attended ? "success" : "danger"} btn-sm" 
-                    onclick="toggleAttendance(${data.id}, ${!data.attended})">
-              ${data.attended ? "Yes" : "No"}
+            <button class="btn btn-danger btn-sm" onclick="deleteClass(${data.id})">Delete</button>
+            <button class="btn btn-danger btn-sm" 
+                    onclick="toggleAttendance(${data.id}, true)">
+              No
             </button>
           </td>
         `;
             } else {
-              alert("Failed to create class. Please check your input.");
+              alert("Failed to create class. Please try again.");
             }
           })
           .catch((error) => {
             console.error("Error:", error);
-            alert("An error occurred while creating the class.");
+            alert("Failed to create class. Please try again.");
           });
       };
-      fetchScheduleData();
+
+      const logout = () => {
+        localStorage.removeItem("token");
+        window.location.href = "login.html"; // Redirect to login page
+      };
+
+      window.onload = fetchScheduleData; // Fetch schedule data when the page loads
     </script>
   </body>
 </html>

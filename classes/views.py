@@ -90,13 +90,28 @@ def list_classes(request):
 def delete_class(request, class_id):
     try:
         class_instance = Class.objects.get(id=class_id)
+
+        # Check if the class belongs to the authenticated teacher
         if class_instance.teacher != request.user:
             return Response(
                 {"error": "You are not authorized to delete this class."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # Check the attendance status before deletion
+        current_attended_status = (
+            class_instance.attended
+        )  # Assuming 'attended' is the field representing attendance
+
+        # Only decrement the teacher's monthly_hours if the class was marked as attended
+        teacher = class_instance.teacher
+        if current_attended_status:  # If it was attended, decrement monthly_hours
+            teacher.monthly_hours -= 1
+            teacher.save()
+
+        # Now delete the class
         class_instance.delete()
+
         return Response(
             {"message": "Class deleted successfully."},
             status=status.HTTP_204_NO_CONTENT,
