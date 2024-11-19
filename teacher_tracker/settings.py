@@ -29,7 +29,18 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+CSRF_COOKIE_SECURE = True
+
+ALLOWED_HOSTS = ["*", "https://teacher-tracker.onrender.com"]
+
+CSRF_TRUSTED_ORIGINS = ["https://teacher-tracker.onrender.com"]
+
+CORS_ALLOWED_ORIGINS = [
+    "https://teacher-tracker.onrender.com",
+]
+
+
+SHELL_PLUS = "ipython"
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
