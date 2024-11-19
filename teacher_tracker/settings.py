@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 from datetime import timedelta
 import dj_database_url
 from pathlib import Path
+import dj_database_url
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-5%zn@%7rnroknskpan%blu)eeyqf)-=7b620r#lqe9q-uqr0^j"
+SECRET_KEY = os.getenv("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
@@ -97,10 +99,10 @@ WSGI_APPLICATION = "teacher_tracker.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
+
 DATABASES = {
     "default": dj_database_url.config(
-        default="postgresql://teacher_tracker_db_user:xCxolLq04n9JKKQ9epLuDMbI4WVOTsuW@dpg-csr232lumphs73db0sv0-a.oregon-postgres.render.com/teacher_tracker_db",
-        conn_max_age=600,
+        default=os.getenv("DB_URL")  # Fetch DB_URL from environment variables
     )
 }
 
